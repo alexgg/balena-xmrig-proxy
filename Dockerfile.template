@@ -1,0 +1,23 @@
+ARG VERSION=latest
+FROM balenalib/%%BALENA_MACHINE_NAME%%-ubuntu:${VERSION} as builder
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y locales git build-essential cmake libuv1-dev uuid-dev nano
+
+RUN dpkg-reconfigure locales && \
+  locale-gen en_US.UTF-8 && \
+  update-locale LANG=en_US.UTF-8 LC_CTYPE=en_US.UTF-8 LANGUAGE=en_US:en LC_ALL=en_US.UTF-8
+
+RUN git clone https://github.com/xmrig/xmrig-proxy.git && mv xmrig-proxy xmrig-proxy-dev && \
+  cd xmrig-proxy-dev && mkdir build && cd build && \
+  cmake .. -DCMAKE_BUILD_TYPE=Release -DWITH_TLS=OFF && \
+  make && mv xmrig-proxy-notls / && cd ../../ && rm -rf xmrig-proxy-dev
+
+FROM balenalib/%%BALENA_MACHINE_NAME%%-ubuntu:${VERSION}
+
+COPY entrypoint.sh /entrypoint.sh
+COPY --from=builder /xmrig-proxy-notls /xmrig/xmrig-proxy
+
+WORKDIR /tmp
+ENTRYPOINT ["/entrypoint.sh"]
